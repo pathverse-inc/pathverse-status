@@ -42,6 +42,9 @@ on:
       issue_descriptions:
         description: 'JSON array of parsed issue descriptions (text between boundaries)'
         value: ${{ jobs.compute.outputs.issue_descriptions }}
+      format_down_ids:
+        description: 'Array of issue IDs with format_down label'
+        value: ${{ jobs.compute.outputs.format_down_ids }}
 
 jobs:
   compute:
@@ -55,6 +58,7 @@ jobs:
       closed_count: ${{ steps.get-closed-issues.outputs.closed_count }}
       closed_ids: ${{ steps.get-closed-issues.outputs.closed_ids }}
       issue_descriptions: ${{ steps.parse-descriptions.outputs.issue_descriptions }}
+      format_down_ids: ${{ steps.get-issues.outputs.format_down_ids }}
     
     steps:
       - name: Get Open Issues with Label
@@ -75,10 +79,16 @@ jobs:
             const issueBodies = issues.data.map(issue => issue.body || '');
             const issueIds = issues.data.map(issue => issue.number);
             
+            // Find issues with format_down label
+            const formatDownIds = issues.data
+              .filter(issue => issue.labels.some(l => l.name === 'format_down'))
+              .map(issue => issue.number);
+            
             // Save to output
             core.setOutput('issue_bodies', JSON.stringify(issueBodies));
             core.setOutput('open_count', issues.data.length);
             core.setOutput('open_ids', JSON.stringify(issueIds));
+            core.setOutput('format_down_ids', JSON.stringify(formatDownIds));
       
       - name: Parse Issue Descriptions
         id: parse-descriptions
@@ -202,6 +212,7 @@ jobs:
           echo "Label: ${{ inputs.issue_label }}"
           echo "Open Issues: ${{ steps.get-issues.outputs.open_count }}"
           echo "Open Issue IDs: ${{ steps.get-issues.outputs.open_ids }}"
+          echo "Format Down IDs: ${{ steps.get-issues.outputs.format_down_ids }}"
           echo "Recently Closed Issues: ${{ steps.get-closed-issues.outputs.closed_count }}"
           echo "Closed Issue IDs: ${{ steps.get-closed-issues.outputs.closed_ids }}"
           echo "Total Degradation Score: ${{ steps.calculate.outputs.degradation_score }}"
