@@ -1,15 +1,21 @@
 [
     {
-        "type" : "warning",
-        "message" : "All these are placeholders meant for testing purposes."
+        "type": "warning",
+        "message": "All these are placeholders meant for testing purposes."
     },
     {
-        "down" : true,
-        "type" : "error",
-        "message" : "We are aware of an issue affecting the web application. Our team is investigating."
+        "down": true,
+        "type": "error",
+        "message": "We are aware of an issue affecting the web application. Our team is investigating."
     },
     {
-        "type" : "info",
-        "message" : "Version 2.5.1 includes performance improvements and bug fixes."
+        "type": "info",
+        "message": "Version 2.5.1 includes performance improvements and bug fixes."
+    },
+    {
+        "id": 1,
+        "type": "error",
+        "message": "This is a fake report",
+        "down": true
     }
 ]
