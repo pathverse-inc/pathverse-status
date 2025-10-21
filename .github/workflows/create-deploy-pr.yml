@@ -95,10 +95,12 @@ jobs:
         run: |
           gh pr review ${{ steps.create-pr.outputs.pr_number }} --approve
 
-      - name: Trigger Vercel Deployment
-        if: steps.create-pr.outputs.pr_number
+      - name: Merge Pull Request
+        if: steps.create-pr.outputs.pr_number && inputs.approve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          curl -X POST ${{ secrets.VERCEL_HOOK }}
+          gh pr merge ${{ steps.create-pr.outputs.pr_number }} --merge --auto
 
       - name: No changes to sync
         if: steps.check-branch.outputs.branch_exists == 'true' && steps.check-diff.outputs.diff_count == '0'
