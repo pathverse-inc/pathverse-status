@@ -154,4 +154,4 @@ jobs:
     needs: update-status-files
     uses: ./.github/workflows/create-deploy-pr.yml
     with:
-      approve: false
+      approve: true
