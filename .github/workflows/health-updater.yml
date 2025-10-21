@@ -1,0 +1,194 @@
+name: Health Updater
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # Every 30 minutes
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  collect-health-data:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+    outputs:
+      api-health: ${{ steps.api-health.outputs.status }}
+      api-data: ${{ steps.api-degradation.outputs.data }}
+      webapp-health: ${{ steps.webapp-health.outputs.status }}
+      webapp-data: ${{ steps.webapp-degradation.outputs.data }}
+    
+    steps:
+      - name: Run API Health Check
+        id: api-health
+        uses: ./.github/workflows/api-health-check.yml
+      
+      - name: Compute API Degradation
+        id: api-degradation-raw
+        uses: ./.github/workflows/compute-degradation.yml
+        with:
+          issue_label: 'project_api'
+          verbose: false
+      
+      - name: Package API Data
+        id: api-degradation
+        run: |
+          echo 'data<<EOF' >> $GITHUB_OUTPUT
+          cat <<'EOD' >> $GITHUB_OUTPUT
+          {
+            "open_ids": ${{ steps.api-degradation-raw.outputs.open_ids }},
+            "closed_ids": ${{ steps.api-degradation-raw.outputs.closed_ids }},
+            "format_down_ids": ${{ steps.api-degradation-raw.outputs.format_down_ids }},
+            "descriptions": ${{ steps.api-degradation-raw.outputs.issue_descriptions }},
+            "score": ${{ steps.api-degradation-raw.outputs.degradation_score }}
+          }
+          EOD
+          echo 'EOF' >> $GITHUB_OUTPUT
+      
+      - name: Run Webapp Health Check
+        id: webapp-health
+        uses: ./.github/workflows/webapp-health-check.yml
+      
+      - name: Compute Webapp Degradation
+        id: webapp-degradation-raw
+        uses: ./.github/workflows/compute-degradation.yml
+        with:
+          issue_label: 'project_webapp'
+          verbose: false
+      
+      - name: Package Webapp Data
+        id: webapp-degradation
+        run: |
+          echo 'data<<EOF' >> $GITHUB_OUTPUT
+          cat <<'EOD' >> $GITHUB_OUTPUT
+          {
+            "open_ids": ${{ steps.webapp-degradation-raw.outputs.open_ids }},
+            "closed_ids": ${{ steps.webapp-degradation-raw.outputs.closed_ids }},
+            "format_down_ids": ${{ steps.webapp-degradation-raw.outputs.format_down_ids }},
+            "descriptions": ${{ steps.webapp-degradation-raw.outputs.issue_descriptions }},
+            "score": ${{ steps.webapp-degradation-raw.outputs.degradation_score }}
+          }
+          EOD
+          echo 'EOF' >> $GITHUB_OUTPUT
+  
+  update-status-files:
+    needs: collect-health-data
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Update issues.json and status.json
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Helper function to update issues for a service
+            function updateIssuesForService(issues, degradationData) {
+              const { open_ids, closed_ids, format_down_ids, descriptions } = degradationData;
+              
+              // Remove closed issues
+              issues = issues.filter(issue => {
+                if (issue.id && closed_ids.includes(issue.id)) {
+                  console.log(`Removing closed issue: ${issue.id}`);
+                  return false;
+                }
+                return true;
+              });
+              
+              // Process open issues
+              open_ids.forEach(id => {
+                const existingIssue = issues.find(i => i.id === id);
+                const issueDesc = descriptions.find(d => d.id === id);
+                const isFormatDown = format_down_ids.includes(id);
+                
+                if (!existingIssue) {
+                  const newIssue = {
+                    id: id,
+                    type: 'error',
+                    message: issueDesc ? issueDesc.description : 'Issue details not available'
+                  };
+                  
+                  if (isFormatDown) {
+                    newIssue.down = true;
+                  }
+                  
+                  console.log(`Adding new issue: ${id}`);
+                  issues.push(newIssue);
+                } else {
+                  if (issueDesc) {
+                    existingIssue.message = issueDesc.description;
+                  }
+                  
+                  if (isFormatDown) {
+                    existingIssue.down = true;
+                  } else {
+                    delete existingIssue.down;
+                  }
+                  
+                  console.log(`Updated issue: ${id}`);
+                }
+              });
+              
+              return issues;
+            }
+            
+            // Read current files
+            let issues = JSON.parse(fs.readFileSync('./public/issues.json', 'utf8'));
+            let status = JSON.parse(fs.readFileSync('./public/status.json', 'utf8'));
+            
+            // Get degradation data
+            const apiData = JSON.parse(`${{ needs.collect-health-data.outputs.api-data }}`);
+            const webappData = JSON.parse(`${{ needs.collect-health-data.outputs.webapp-data }}`);
+            
+            // Update issues.json
+            issues = updateIssuesForService(issues, apiData);
+            issues = updateIssuesForService(issues, webappData);
+            
+            // Update status.json
+            const apiHealth = parseInt('${{ needs.collect-health-data.outputs.api-health }}');
+            const webappHealth = parseInt('${{ needs.collect-health-data.outputs.webapp-health }}');
+            
+            // Calculate status values
+            const apiStatus = apiHealth === 0 ? 0 : 100 - apiData.score;
+            const webappStatus = webappHealth === 0 ? 0 : 100 - webappData.score;
+            
+            console.log(`API health: ${apiHealth}, degradation: ${apiData.score}, status: ${apiStatus}`);
+            console.log(`Webapp health: ${webappHealth}, degradation: ${webappData.score}, status: ${webappStatus}`);
+            
+            // Update status arrays: remove first value, add new value at the end
+            status.api.shift();
+            status.api.push(apiStatus);
+            
+            status.webapp.shift();
+            status.webapp.push(webappStatus);
+            
+            // Write updated files
+            fs.writeFileSync('./public/issues.json', JSON.stringify(issues, null, 4));
+            console.log('✅ issues.json updated');
+            
+            fs.writeFileSync('./public/status.json', JSON.stringify(status, null, 4));
+            console.log('✅ status.json updated');
+      
+      - name: Commit and Push Changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add public/issues.json public/status.json
+          git diff --staged --quiet || git commit -m "chore: update status files [skip ci]"
+          git push
+  
+  deploy:
+    needs: update-status-files
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Create Deploy PR
+        uses: ./.github/workflows/create-deploy-pr.yml
+        with:
+          approve: true
