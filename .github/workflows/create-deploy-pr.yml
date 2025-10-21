@@ -29,24 +29,78 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check if deploy branch exists
+        id: check-branch
+        run: |
+          if git ls-remote --heads origin deploy | grep -q deploy; then
+            echo "branch_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "branch_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create deploy branch if it doesn't exist
+        if: steps.check-branch.outputs.branch_exists == 'false'
+        run: |
+          git checkout -b deploy
+          git push origin deploy
+          echo "Created deploy branch from main"
+
+      - name: Check for differences between branches
+        id: check-diff
+        if: steps.check-branch.outputs.branch_exists == 'true'
+        run: |
+          git fetch origin deploy
+          DIFF_COUNT=$(git rev-list --count origin/deploy..origin/main)
+          echo "diff_count=$DIFF_COUNT" >> $GITHUB_OUTPUT
+          echo "Commits ahead: $DIFF_COUNT"
+
+      - name: Check if PR already exists
+        id: check-pr
+        if: steps.check-branch.outputs.branch_exists == 'true' && steps.check-diff.outputs.diff_count != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_EXISTS=$(gh pr list --base deploy --head main --state open --json number --jq length)
+          echo "pr_exists=$PR_EXISTS" >> $GITHUB_OUTPUT
+
       - name: Create Pull Request
+        if: steps.check-branch.outputs.branch_exists == 'true' && steps.check-diff.outputs.diff_count != '0' && steps.check-pr.outputs.pr_exists == '0'
         id: create-pr
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: deploy
-          base: main
-          title: 'Deploy: main -> deploy'
-          body: |
-            Automated deployment PR from main to deploy branch.
-            
-            This PR was created by GitHub Actions.
-          commit-message: 'chore: sync deploy branch with main'
-          delete-branch: false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_URL=$(gh pr create \
+            --base deploy \
+            --head main \
+            --title "🚀 Deploy: main → deploy" \
+            --body "## Automated Deployment PR
+
+          This PR automatically syncs changes from \`main\` to \`deploy\`.
+
+          ### Changes
+          - Auto-generated deployment from main branch
+          - Status files updated by health monitoring
+
+          ---
+          _This PR was automatically created by GitHub Actions_")
+          
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+          PR_NUMBER=$(echo "$PR_URL" | grep -oP '\d+$')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
 
       - name: Approve Pull Request
-        if: ${{ inputs.approve && steps.create-pr.outputs.pull-request-number }}
-        uses: juliangruber/approve-pull-request-action@v2
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          number: ${{ steps.create-pr.outputs.pull-request-number }}
+        if: steps.create-pr.outputs.pr_number && inputs.approve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr review ${{ steps.create-pr.outputs.pr_number }} --approve
+
+      - name: No changes to sync
+        if: steps.check-branch.outputs.branch_exists == 'true' && steps.check-diff.outputs.diff_count == '0'
+        run: |
+          echo "No commits between deploy and main. No PR needed."
+
+      - name: PR already exists
+        if: steps.check-branch.outputs.branch_exists == 'true' && steps.check-diff.outputs.diff_count != '0' && steps.check-pr.outputs.pr_exists != '0'
+        run: |
+          echo "PR already exists from main to deploy. Skipping creation."
