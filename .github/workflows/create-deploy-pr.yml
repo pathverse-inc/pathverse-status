@@ -88,13 +88,6 @@ jobs:
           PR_NUMBER=$(echo "$PR_URL" | grep -oP '\d+$')
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
 
-      - name: Approve Pull Request
-        if: steps.create-pr.outputs.pr_number && inputs.approve
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh pr review ${{ steps.create-pr.outputs.pr_number }} --approve
-
       - name: Merge Pull Request
         if: steps.create-pr.outputs.pr_number && inputs.approve
         env:
