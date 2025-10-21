@@ -36,9 +36,18 @@ body:
       description: Describe the issue in detail. Make sure to include the degradation score below.
       placeholder: What is happening with the API service?
       value: |
-        <!-- Describe the issue here -->
+        <!-- ========================================= -->
+        <!-- START: Write your issue description here  -->
+        <!-- Only text within this boundary will be    -->
+        <!-- displayed on the status page              -->
+        <!-- ========================================= -->
         
         
+        
+        <!-- ========================================= -->
+        <!-- END: Issue description boundary           -->
+        <!-- Do not write below this line              -->
+        <!-- ========================================= -->
         
         <!-- ⚠️ IMPORTANT: Add your health points deduction below -->
         <!-- Replace XX with a number between 0-100 based on the impact guide -->

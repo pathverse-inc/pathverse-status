@@ -29,6 +29,9 @@ on:
       closed_ids:
         description: 'Array of recently closed issue IDs'
         value: ${{ jobs.compute.outputs.closed_ids }}
+      issue_descriptions:
+        description: 'JSON array of parsed issue descriptions (text between boundaries)'
+        value: ${{ jobs.compute.outputs.issue_descriptions }}
 
 jobs:
   compute:
@@ -41,6 +44,7 @@ jobs:
       open_ids: ${{ steps.get-issues.outputs.open_ids }}
       closed_count: ${{ steps.get-closed-issues.outputs.closed_count }}
       closed_ids: ${{ steps.get-closed-issues.outputs.closed_ids }}
+      issue_descriptions: ${{ steps.parse-descriptions.outputs.issue_descriptions }}
     
     steps:
       - name: Get Open Issues with Label
@@ -65,6 +69,45 @@ jobs:
             core.setOutput('issue_bodies', JSON.stringify(issueBodies));
             core.setOutput('open_count', issues.data.length);
             core.setOutput('open_ids', JSON.stringify(issueIds));
+      
+      - name: Parse Issue Descriptions
+        id: parse-descriptions
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueBodies = JSON.parse('${{ steps.get-issues.outputs.issue_bodies }}');
+            const issueIds = JSON.parse('${{ steps.get-issues.outputs.open_ids }}');
+            
+            const parsedIssues = issueBodies.map((body, index) => {
+              // Extract text between START and END boundaries
+              const startMarker = '<!-- START: Write your issue description here';
+              const endMarker = '<!-- END: Issue description boundary';
+              
+              let description = '';
+              if (body.includes(startMarker) && body.includes(endMarker)) {
+                const startIndex = body.indexOf(startMarker);
+                const endIndex = body.indexOf(endMarker);
+                
+                if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+                  // Extract text between markers
+                  let extracted = body.substring(startIndex, endIndex);
+                  // Remove the start marker line
+                  extracted = extracted.substring(extracted.indexOf('-->') + 3);
+                  // Trim whitespace and remove HTML comments
+                  description = extracted.replace(/<!--[\s\S]*?-->/g, '').trim();
+                }
+              } else {
+                // If no boundaries found, use the whole body (fallback)
+                description = body.trim();
+              }
+              
+              return {
+                id: issueIds[index],
+                description: description
+              };
+            });
+            
+            core.setOutput('issue_descriptions', JSON.stringify(parsedIssues));
       
       - name: Get Recently Closed Issues with Label
         id: get-closed-issues
