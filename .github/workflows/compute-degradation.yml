@@ -75,8 +75,8 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const issueBodies = JSON.parse('${{ steps.get-issues.outputs.issue_bodies }}');
-            const issueIds = JSON.parse('${{ steps.get-issues.outputs.open_ids }}');
+            const issueBodies = ${{ steps.get-issues.outputs.issue_bodies }};
+            const issueIds = ${{ steps.get-issues.outputs.open_ids }};
             
             const parsedIssues = issueBodies.map((body, index) => {
               // Extract text between START and END boundaries
@@ -84,7 +84,7 @@ jobs:
               const endMarker = '<!-- END: Issue description boundary';
               
               let description = '';
-              if (body.includes(startMarker) && body.includes(endMarker)) {
+              if (body && body.includes(startMarker) && body.includes(endMarker)) {
                 const startIndex = body.indexOf(startMarker);
                 const endIndex = body.indexOf(endMarker);
                 
@@ -96,7 +96,7 @@ jobs:
                   // Trim whitespace and remove HTML comments
                   description = extracted.replace(/<!--[\s\S]*?-->/g, '').trim();
                 }
-              } else {
+              } else if (body) {
                 // If no boundaries found, use the whole body (fallback)
                 description = body.trim();
               }
