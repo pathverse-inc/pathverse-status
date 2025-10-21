@@ -91,7 +91,7 @@ jobs:
       - name: Approve Pull Request
         if: steps.create-pr.outputs.pr_number && inputs.approve
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           gh pr review ${{ steps.create-pr.outputs.pr_number }} --approve
 
