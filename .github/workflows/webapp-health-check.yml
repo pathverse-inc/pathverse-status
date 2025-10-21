@@ -1,0 +1,44 @@
+name: Webapp Health Check
+
+on:
+  workflow_dispatch:  # Allow manual trigger
+  workflow_call:
+    outputs:
+      status:
+        description: 'Webapp health status (1 for healthy, 0 for unhealthy)'
+        value: ${{ jobs.health-check.outputs.status }}
+
+env:
+  WEBAPP_ENDPOINT: ${{ vars.WEBAPP_ENDPOINT }}
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.check.outputs.status }}
+    
+    steps:
+      - name: Check Webapp Health
+        id: check
+        run: |
+          # Make request to webapp endpoint with timeout
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$WEBAPP_ENDPOINT" || echo "000")
+          
+          echo "HTTP Status: $HTTP_STATUS"
+          
+          # Check if status is 200 (healthy - webapp is responding successfully)
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "Webapp is healthy (200 - OK)"
+            echo "status=1" >> $GITHUB_OUTPUT
+          else
+            echo "Webapp is unhealthy (status: $HTTP_STATUS - unreachable or timeout)"
+            echo "status=0" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Display Result
+        run: |
+          if [ "${{ steps.check.outputs.status }}" = "1" ]; then
+            echo "✅ Webapp Health Check: PASSED"
+          else
+            echo "❌ Webapp Health Check: FAILED"
+          fi

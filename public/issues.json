@@ -1,6 +1,5 @@
 [
     {
-        "id" : 1,
         "type" : "warning",
         "message" : "All these are placeholders meant for testing purposes."
     },

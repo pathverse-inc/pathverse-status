@@ -1,0 +1,63 @@
+name: Auto-label Issues
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  auto-label:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    
+    steps:
+      - name: Add Labels Based on Issue Content
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const body = issue.body || '';
+            const labelsToAdd = [];
+            
+            // Check for issue type in the body
+            if (body.includes('Issue Type')) {
+              if (body.match(/Issue Type[\s\S]*?error/i)) {
+                labelsToAdd.push('issue_error');
+              } else if (body.match(/Issue Type[\s\S]*?warning/i)) {
+                labelsToAdd.push('issue_warning');
+              } else if (body.match(/Issue Type[\s\S]*?info/i)) {
+                labelsToAdd.push('issue_info');
+              }
+            }
+            
+            // Check for format_down checkbox
+            if (body.match(/\[x\].*Show below status charts/i)) {
+              labelsToAdd.push('format_down');
+            }
+            
+            // Add labels if any were found
+            if (labelsToAdd.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: labelsToAdd
+              });
+              
+              console.log(`Added labels: ${labelsToAdd.join(', ')}`);
+            }
+            
+            // Remove format_down label if checkbox is unchecked
+            if (body.match(/\[ \].*Show below status charts/i)) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  name: 'format_down'
+                });
+                console.log('Removed format_down label (checkbox unchecked)');
+              } catch (error) {
+                // Label might not exist, ignore error
+              }
+            }

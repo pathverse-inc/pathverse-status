@@ -1,0 +1,139 @@
+name: Compute Degradation
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_label:
+        description: 'Issue label to filter by'
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      issue_label:
+        description: 'Issue label to filter by'
+        required: true
+        type: string
+    outputs:
+      degradation_score:
+        description: 'Total degradation score from open issues'
+        value: ${{ jobs.compute.outputs.degradation_score }}
+      open_count:
+        description: 'Number of open issues'
+        value: ${{ jobs.compute.outputs.open_count }}
+      open_ids:
+        description: 'Array of open issue IDs'
+        value: ${{ jobs.compute.outputs.open_ids }}
+      closed_count:
+        description: 'Number of recently closed issues'
+        value: ${{ jobs.compute.outputs.closed_count }}
+      closed_ids:
+        description: 'Array of recently closed issue IDs'
+        value: ${{ jobs.compute.outputs.closed_ids }}
+
+jobs:
+  compute:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+    outputs:
+      degradation_score: ${{ steps.calculate.outputs.degradation_score }}
+      open_count: ${{ steps.get-issues.outputs.open_count }}
+      open_ids: ${{ steps.get-issues.outputs.open_ids }}
+      closed_count: ${{ steps.get-closed-issues.outputs.closed_count }}
+      closed_ids: ${{ steps.get-closed-issues.outputs.closed_ids }}
+    
+    steps:
+      - name: Get Open Issues with Label
+        id: get-issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const label = '${{ inputs.issue_label }}';
+            
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: label
+            });
+            
+            // Extract issue bodies and IDs
+            const issueBodies = issues.data.map(issue => issue.body || '');
+            const issueIds = issues.data.map(issue => issue.number);
+            
+            // Save to output
+            core.setOutput('issue_bodies', JSON.stringify(issueBodies));
+            core.setOutput('open_count', issues.data.length);
+            core.setOutput('open_ids', JSON.stringify(issueIds));
+      
+      - name: Get Recently Closed Issues with Label
+        id: get-closed-issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const label = '${{ inputs.issue_label }}';
+            
+            const closedIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'closed',
+              labels: label,
+              sort: 'updated',
+              direction: 'desc',
+              per_page: 20
+            });
+            
+            // Get issues closed in the last 7 days
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            
+            const recentlyClosed = closedIssues.data.filter(issue => {
+              const closedAt = new Date(issue.closed_at);
+              return closedAt >= sevenDaysAgo;
+            });
+            
+            const closedIds = recentlyClosed.map(issue => issue.number);
+            
+            // Save to output
+            core.setOutput('closed_count', recentlyClosed.length);
+            core.setOutput('closed_ids', JSON.stringify(closedIds));
+      
+      - name: Calculate Degradation Score
+        id: calculate
+        run: |
+          ISSUE_BODIES='${{ steps.get-issues.outputs.issue_bodies }}'
+          OPEN_COUNT='${{ steps.get-issues.outputs.open_count }}'
+          
+          echo "Found $OPEN_COUNT open issues with label '${{ inputs.issue_label }}'"
+          
+          # Initialize total degradation score
+          TOTAL_DEGRADATION=0
+          
+          # Parse JSON array and extract degradation scores
+          echo "$ISSUE_BODIES" | jq -r '.[]' | while IFS= read -r body; do
+            # Extract degradation score using regex (degrade: {number})
+            if echo "$body" | grep -qiP '\(degrade:\s*\d+\)'; then
+              SCORE=$(echo "$body" | grep -oiP '\(degrade:\s*\K\d+(?=\))' | head -1)
+              if [ -n "$SCORE" ]; then
+                echo "Found degradation score: $SCORE"
+                TOTAL_DEGRADATION=$((TOTAL_DEGRADATION + SCORE))
+              fi
+            fi
+          done
+          
+          # Alternative method using jq and a single pass
+          TOTAL_DEGRADATION=$(echo "$ISSUE_BODIES" | jq -r '.[]' | grep -oiP '\(degrade:\s*\K\d+(?=\))' | awk '{sum+=$1} END {print sum+0}')
+          
+          echo "Total degradation score: $TOTAL_DEGRADATION"
+          echo "degradation_score=$TOTAL_DEGRADATION" >> $GITHUB_OUTPUT
+      
+      - name: Display Result
+        run: |
+          echo "📊 Degradation Computation Results"
+          echo "=================================="
+          echo "Label: ${{ inputs.issue_label }}"
+          echo "Open Issues: ${{ steps.get-issues.outputs.open_count }}"
+          echo "Open Issue IDs: ${{ steps.get-issues.outputs.open_ids }}"
+          echo "Recently Closed Issues: ${{ steps.get-closed-issues.outputs.closed_count }}"
+          echo "Closed Issue IDs: ${{ steps.get-closed-issues.outputs.closed_ids }}"
+          echo "Total Degradation Score: ${{ steps.calculate.outputs.degradation_score }}"

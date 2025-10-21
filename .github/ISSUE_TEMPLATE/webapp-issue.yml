@@ -1,0 +1,62 @@
+name: Webapp Issue Report
+description: Report an issue affecting the Web Application
+title: "[Webapp] "
+labels: ["project_webapp"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Webapp Issue Report
+        Use this template to report issues affecting the web application service.
+        
+  - type: dropdown
+    id: issue_type
+    attributes:
+      label: Issue Type
+      description: Select the severity of this issue (label will be automatically added)
+      options:
+        - error
+        - warning
+        - info
+    validations:
+      required: true
+  
+  - type: checkboxes
+    id: format_down
+    attributes:
+      label: Display Location
+      description: Check this to display the issue below the status charts instead of at the top
+      options:
+        - label: Show below status charts (for active incidents)
+  
+  - type: textarea
+    id: description
+    attributes:
+      label: Issue Description
+      description: Describe the issue in detail. Make sure to include the degradation score below.
+      placeholder: What is happening with the web application?
+      value: |
+        <!-- Describe the issue here -->
+        
+        
+        
+        <!-- ⚠️ IMPORTANT: Add your health points deduction below -->
+        <!-- Replace XX with a number between 0-100 based on the impact guide -->
+        <!-- Health Points Guide:
+             0: No impact (informational only)
+             1-25: Minor degradation (some features slow)
+             26-50: Moderate degradation (significant slowdown)
+             51-75: Major degradation (service barely functional)
+             76-99: Critical degradation (service mostly unusable)
+             100: Complete outage (service down)
+        -->
+        (degrade: XX)
+    validations:
+      required: true
+  
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: What is the impact of this issue?
+      placeholder: Which pages or features are affected?

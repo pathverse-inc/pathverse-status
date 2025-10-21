@@ -1,0 +1,44 @@
+name: API Health Check
+
+on:
+  workflow_dispatch:  # Allow manual trigger
+  workflow_call:
+    outputs:
+      status:
+        description: 'API health status (1 for healthy, 0 for unhealthy)'
+        value: ${{ jobs.health-check.outputs.status }}
+
+env:
+  API_ENDPOINT: ${{ vars.API_ENDPOINT }}
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.check.outputs.status }}
+    
+    steps:
+      - name: Check API Health
+        id: check
+        run: |
+          # Make request to API endpoint with timeout
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$API_ENDPOINT" || echo "000")
+          
+          echo "HTTP Status: $HTTP_STATUS"
+          
+          # Check if status is 401 (healthy - API is responding with auth required)
+          if [ "$HTTP_STATUS" = "401" ]; then
+            echo "API is healthy (401 - authentication required)"
+            echo "status=1" >> $GITHUB_OUTPUT
+          else
+            echo "API is unhealthy (status: $HTTP_STATUS)"
+            echo "status=0" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Display Result
+        run: |
+          if [ "${{ steps.check.outputs.status }}" = "1" ]; then
+            echo "✅ API Health Check: PASSED"
+          else
+            echo "❌ API Health Check: FAILED"
+          fi
