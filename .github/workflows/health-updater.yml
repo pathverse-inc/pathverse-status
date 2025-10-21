@@ -6,71 +6,26 @@ on:
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
-  collect-health-data:
-    runs-on: ubuntu-latest
-    permissions:
-      issues: read
-    outputs:
-      api-health: ${{ steps.api-health.outputs.status }}
-      api-data: ${{ steps.api-degradation.outputs.data }}
-      webapp-health: ${{ steps.webapp-health.outputs.status }}
-      webapp-data: ${{ steps.webapp-degradation.outputs.data }}
-    
-    steps:
-      - name: Run API Health Check
-        id: api-health
-        uses: ./.github/workflows/api-health-check.yml
-      
-      - name: Compute API Degradation
-        id: api-degradation-raw
-        uses: ./.github/workflows/compute-degradation.yml
-        with:
-          issue_label: 'project_api'
-          verbose: false
-      
-      - name: Package API Data
-        id: api-degradation
-        run: |
-          echo 'data<<EOF' >> $GITHUB_OUTPUT
-          cat <<'EOD' >> $GITHUB_OUTPUT
-          {
-            "open_ids": ${{ steps.api-degradation-raw.outputs.open_ids }},
-            "closed_ids": ${{ steps.api-degradation-raw.outputs.closed_ids }},
-            "format_down_ids": ${{ steps.api-degradation-raw.outputs.format_down_ids }},
-            "descriptions": ${{ steps.api-degradation-raw.outputs.issue_descriptions }},
-            "score": ${{ steps.api-degradation-raw.outputs.degradation_score }}
-          }
-          EOD
-          echo 'EOF' >> $GITHUB_OUTPUT
-      
-      - name: Run Webapp Health Check
-        id: webapp-health
-        uses: ./.github/workflows/webapp-health-check.yml
-      
-      - name: Compute Webapp Degradation
-        id: webapp-degradation-raw
-        uses: ./.github/workflows/compute-degradation.yml
-        with:
-          issue_label: 'project_webapp'
-          verbose: false
-      
-      - name: Package Webapp Data
-        id: webapp-degradation
-        run: |
-          echo 'data<<EOF' >> $GITHUB_OUTPUT
-          cat <<'EOD' >> $GITHUB_OUTPUT
-          {
-            "open_ids": ${{ steps.webapp-degradation-raw.outputs.open_ids }},
-            "closed_ids": ${{ steps.webapp-degradation-raw.outputs.closed_ids }},
-            "format_down_ids": ${{ steps.webapp-degradation-raw.outputs.format_down_ids }},
-            "descriptions": ${{ steps.webapp-degradation-raw.outputs.issue_descriptions }},
-            "score": ${{ steps.webapp-degradation-raw.outputs.degradation_score }}
-          }
-          EOD
-          echo 'EOF' >> $GITHUB_OUTPUT
+  api-health-check:
+    uses: ./.github/workflows/api-health-check.yml
+  
+  api-degradation:
+    uses: ./.github/workflows/compute-degradation.yml
+    with:
+      issue_label: 'project_api'
+      verbose: false
+  
+  webapp-health-check:
+    uses: ./.github/workflows/webapp-health-check.yml
+  
+  webapp-degradation:
+    uses: ./.github/workflows/compute-degradation.yml
+    with:
+      issue_label: 'project_webapp'
+      verbose: false
   
   update-status-files:
-    needs: collect-health-data
+    needs: [api-health-check, api-degradation, webapp-health-check, webapp-degradation]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -139,17 +94,32 @@ jobs:
             let issues = JSON.parse(fs.readFileSync('./public/issues.json', 'utf8'));
             let status = JSON.parse(fs.readFileSync('./public/status.json', 'utf8'));
             
+            // Get health check results
+            const apiHealth = parseInt('${{ needs.api-health-check.outputs.status }}');
+            const webappHealth = parseInt('${{ needs.webapp-health-check.outputs.status }}');
+            
             // Get degradation data
-            const apiData = JSON.parse(`${{ needs.collect-health-data.outputs.api-data }}`);
-            const webappData = JSON.parse(`${{ needs.collect-health-data.outputs.webapp-data }}`);
+            const apiData = {
+              open_ids: ${{ needs.api-degradation.outputs.open_ids }},
+              closed_ids: ${{ needs.api-degradation.outputs.closed_ids }},
+              format_down_ids: ${{ needs.api-degradation.outputs.format_down_ids }},
+              descriptions: ${{ needs.api-degradation.outputs.issue_descriptions }},
+              score: parseInt('${{ needs.api-degradation.outputs.degradation_score }}')
+            };
+            
+            const webappData = {
+              open_ids: ${{ needs.webapp-degradation.outputs.open_ids }},
+              closed_ids: ${{ needs.webapp-degradation.outputs.closed_ids }},
+              format_down_ids: ${{ needs.webapp-degradation.outputs.format_down_ids }},
+              descriptions: ${{ needs.webapp-degradation.outputs.issue_descriptions }},
+              score: parseInt('${{ needs.webapp-degradation.outputs.degradation_score }}')
+            };
             
             // Update issues.json
             issues = updateIssuesForService(issues, apiData);
             issues = updateIssuesForService(issues, webappData);
             
             // Update status.json
-            const apiHealth = parseInt('${{ needs.collect-health-data.outputs.api-health }}');
-            const webappHealth = parseInt('${{ needs.collect-health-data.outputs.webapp-health }}');
             
             // Calculate status values
             const apiStatus = apiHealth === 0 ? 0 : 100 - apiData.score;
@@ -182,13 +152,6 @@ jobs:
   
   deploy:
     needs: update-status-files
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    
-    steps:
-      - name: Create Deploy PR
-        uses: ./.github/workflows/create-deploy-pr.yml
-        with:
-          approve: true
+    uses: ./.github/workflows/create-deploy-pr.yml
+    with:
+      approve: false
