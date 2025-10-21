@@ -25,9 +25,9 @@ body:
     id: format_down
     attributes:
       label: Display Location
-      description: Check this to display the issue below the status charts instead of at the top
+      description: Check this to display the issue below the status charts (for supplementary/less important information)
       options:
-        - label: Show below status charts (for active incidents)
+        - label: Show below status charts
   
   - type: textarea
     id: description
