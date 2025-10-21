@@ -2,23 +2,29 @@ import statusData from "@/public/status.json";
 import issuesData from "@/public/issues.json";
 
 type Issue = {
+  id?: number;
   type: "warning" | "error" | "info";
   message: string;
+  down?: boolean;
 };
 
 export default function Home() {
   const services = Object.entries(statusData) as [string, number[]][];
   const issues = issuesData as Issue[];
+  
+  // Separate issues into top (general) and bottom (down-related)
+  const topIssues = issues.filter(issue => !issue.down);
+  const downIssues = issues.filter(issue => issue.down);
 
   return (
     <div className="font-sans min-h-screen p-8 pb-20 sm:p-20">
       <main className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold mb-8">Pathverse Service Status</h1>
         
-        {/* Issues Section */}
-        {issues.length > 0 && (
+        {/* Top Issues Section */}
+        {topIssues.length > 0 && (
           <div className="mb-8 space-y-3">
-            {issues.map((issue, index) => {
+            {topIssues.map((issue, index) => {
               const styles = {
                 warning: "bg-yellow-50 border-yellow-200 text-yellow-900 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-100",
                 error: "bg-red-50 border-red-200 text-red-900 dark:bg-red-900/20 dark:border-red-800 dark:text-red-100",
@@ -163,6 +169,35 @@ export default function Home() {
             );
           })}
         </div>
+        
+        {/* Down Issues Section - Below status charts */}
+        {downIssues.length > 0 && (
+          <div className="mt-8 space-y-3">
+            {downIssues.map((issue, index) => {
+              const styles = {
+                warning: "bg-yellow-50 border-yellow-200 text-yellow-900 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-100",
+                error: "bg-red-50 border-red-200 text-red-900 dark:bg-red-900/20 dark:border-red-800 dark:text-red-100",
+                info: "bg-blue-50 border-blue-200 text-blue-900 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-100"
+              };
+              
+              const icons = {
+                warning: "⚠️",
+                error: "❌",
+                info: "ℹ️"
+              };
+
+              return (
+                <div 
+                  key={issue.id || index}
+                  className={`border rounded-lg p-4 flex items-start gap-3 ${styles[issue.type]}`}
+                >
+                  <span className="text-xl">{icons[issue.type]}</span>
+                  <p className="flex-1">{issue.message}</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
         
         {/* Footer */}
         <footer className="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700">

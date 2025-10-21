@@ -1,0 +1,52 @@
+name: Create Deploy PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve:
+        description: 'Auto-approve the PR'
+        required: true
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      approve:
+        description: 'Auto-approve the PR'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create Pull Request
+        id: create-pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: deploy
+          base: main
+          title: 'Deploy: main -> deploy'
+          body: |
+            Automated deployment PR from main to deploy branch.
+            
+            This PR was created by GitHub Actions.
+          commit-message: 'chore: sync deploy branch with main'
+          delete-branch: false
+
+      - name: Approve Pull Request
+        if: ${{ inputs.approve && steps.create-pr.outputs.pull-request-number }}
+        uses: juliangruber/approve-pull-request-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          number: ${{ steps.create-pr.outputs.pull-request-number }}
