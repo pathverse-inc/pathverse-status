@@ -74,7 +74,12 @@ export default function Home() {
             const timeLabels = uptimeData.map((_, index) => {
               const minutesAgo = (uptimeData.length - 1 - index) * 30;
               const time = new Date(now.getTime() - minutesAgo * 60000);
-              return time.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
+              return time.toLocaleTimeString(undefined, { 
+                hour: 'numeric', 
+                minute: '2-digit', 
+                hour12: true,
+                timeZoneName: 'short'
+              });
             });
 
             return (
