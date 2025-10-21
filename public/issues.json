@@ -17,10 +17,5 @@
         "type": "error",
         "message": "This is a fake report",
         "down": true
-    },
-    {
-        "id": 4,
-        "type": "error",
-        "message": "API IS BROKEN"
     }
 ]
