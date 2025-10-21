@@ -1,0 +1,10 @@
+[
+    {
+        "type" : "warning",
+        "message" : "Scheduled maintenance on July 15th from 1:00 AM to 3:00 AM UTC."
+    },
+    {
+        "type" : "error",
+        "message" : "We are aware of an issue affecting the web application. Our team is investigating."
+    }
+]
