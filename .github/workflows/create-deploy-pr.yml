@@ -83,11 +83,6 @@ jobs:
         run: |
           gh pr merge ${{ steps.create-pr.outputs.pr_number }} --merge
 
-      - name: Trigger Vercel Deployment
-        if: steps.create-pr.outputs.pr_number
-        run: |
-          curl -X POST ${{ secrets.VERCEL_HOOK }}
-
       - name: No changes to sync
         if: steps.check-branch.outputs.branch_exists == 'true' && steps.check-diff.outputs.diff_count == '0'
         run: |
