@@ -95,7 +95,41 @@ User content here with (degrade: 20)
 - Works perfectly with SSR/SSG
 - Minimal bundle size
 
+### 7. Component Modularization
+**Decision**: Extract UI components into separate files in `app/coms/`  
+**Rationale**: 
+- Eliminates code duplication (issues rendered twice)
+- Single responsibility per component
+- Easier to test and maintain
+- Clearer page structure
+**Implementation**:
+- `IssueAlert.tsx`: Handles all issue type rendering
+- `ServiceChart.tsx`: Self-contained chart with all graph logic
+
 ## Component Relationships
+
+### Frontend Component Hierarchy
+```
+app/page.tsx (Main Page)
+├── Imports: IssueAlert component
+├── Imports: ServiceChart component
+├── Renders: Top issues section
+│   └── Maps: IssueAlert for each top issue
+├── Renders: Service grid
+│   └── Maps: ServiceChart for each service
+└── Renders: Bottom issues section
+    └── Maps: IssueAlert for each down issue
+
+app/coms/IssueAlert.tsx
+├── Props: issue, index
+├── Logic: Type-based styling (error/warning/info)
+└── Renders: Styled alert with icon and message
+
+app/coms/ServiceChart.tsx
+├── Props: serviceName, uptimeData
+├── Logic: Status calculation, time labels, graph points
+└── Renders: Card with status badge and SVG graph
+```
 
 ### Workflow Dependencies
 ```

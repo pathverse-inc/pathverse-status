@@ -1,11 +1,34 @@
 # Active Context: Pathverse Status Page
 
 ## Current Work Focus
-**Task**: Finalizing health-updater.yml workflow  
-**Status**: ✅ Complete - All workflow errors resolved  
-**Last Change**: Restructured workflow to properly call reusable workflows using separate jobs
+**Task**: Component modularization  
+**Status**: ✅ Complete - UI components extracted and refactored  
+**Last Change**: Created reusable IssueAlert and ServiceChart components
 
 ## Recent Changes (Current Session)
+
+### 5. Component Modularization (Latest)
+**Problem**: Main page.tsx had duplicated logic for issues and complex chart rendering (~200 lines)  
+**Solution**: Extracted into modular components in `app/coms/` directory
+- **IssueAlert.tsx**: Reusable component for displaying issues
+  - Handles all three issue types (error, warning, info)
+  - Consistent styling and icon display
+  - Used for both top and bottom issue sections
+- **ServiceChart.tsx**: Complete chart component with graph rendering
+  - SVG line graph with plotted points
+  - Status badge calculation (Up/Down/Degraded)
+  - Time-based x-axis labels (30-minute intervals)
+  - Y-axis scale (0-100)
+  - Color-coded based on status
+
+**Result**: 
+- page.tsx reduced from ~200 lines to ~60 lines
+- Zero code duplication
+- Easier to maintain and test
+- Fully type-safe with TypeScript props
+- Same visual output and functionality
+
+## Previous Changes (Earlier in Session)
 
 ### 1. Health Updater Workflow Refactoring
 **Problem**: Cannot use matrix strategy or `uses:` inside steps for reusable workflows  
@@ -101,6 +124,15 @@ User prefers:
 - Reusable components/workflows
 - Clear, maintainable structure
 - Asking before making assumptions about file organization
+- Modular architecture with single responsibility
+
+### Component Design Pattern
+When creating components:
+- Extract duplicated UI logic
+- Keep components focused (one clear purpose)
+- Use TypeScript for type safety
+- Maintain consistent styling patterns
+- Preserve exact functionality during refactoring
 
 ### File Organization Rules (from instructions)
 - Ask first if placement unclear
@@ -136,6 +168,18 @@ User prefers:
 **Webapp**: 200 = Healthy (standard success)  
 **Insight**: "Success" depends on service expectations, not just 2xx codes
 
+### React Component Extraction
+**Learning**: Complex inline logic should be extracted to components when:
+- Logic is duplicated (issues rendered twice)
+- Component is self-contained (chart with all its calculations)
+- Improves readability and maintainability
+**Benefit**: Easier testing, clearer separation of concerns, reduced cognitive load
+
+### TypeScript Props Pattern
+**Learning**: Component props should mirror the data they render
+**Example**: ServiceChart receives `serviceName` and `uptimeData` directly
+**Benefit**: Type safety catches errors early, clear component API
+
 ## Workflow State
 ```
 ✅ api-health-check.yml - Complete, tested
@@ -145,7 +189,9 @@ User prefers:
 ✅ create-deploy-pr.yml - Complete
 ✅ Issue templates - Complete (api & webapp)
 ✅ health-updater.yml - Complete, ready for testing
-✅ app/page.tsx - Complete with graphs and issues display
+✅ app/page.tsx - Complete, modularized with components
+✅ app/coms/IssueAlert.tsx - Complete, reusable issue display
+✅ app/coms/ServiceChart.tsx - Complete, reusable chart component
 ```
 
 ## Known Issues

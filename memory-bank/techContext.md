@@ -26,9 +26,12 @@
 ```
 pathverse-status/
 ├── app/
-│   ├── page.tsx          # Main status page
+│   ├── page.tsx          # Main status page (orchestration)
 │   ├── layout.tsx        # Root layout
-│   └── globals.css       # Global styles
+│   ├── globals.css       # Global styles
+│   └── coms/             # Reusable UI components
+│       ├── IssueAlert.tsx    # Issue display component
+│       └── ServiceChart.tsx  # Chart component with graph
 ├── public/
 │   ├── status.json       # Uptime data
 │   └── issues.json       # Issues data
@@ -96,6 +99,11 @@ pathverse-status/
 2. **Static Generation**: JSON files must be in `public/`
    - Can be imported with `@/public/` alias
    - Bundled at build time
+
+3. **Component Organization**: Components in `app/coms/` directory
+   - Co-located with pages for easy imports
+   - Modular architecture for maintainability
+   - TypeScript for type safety
 
 ## Tool Usage Patterns
 
